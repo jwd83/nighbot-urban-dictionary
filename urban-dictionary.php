@@ -9,11 +9,18 @@ if(strlen($_GET['q'] <= 200)){
     $m = new Memcached();
     $m->addServer('localhost', 11211);
 
+    /*
+    
+    # a flush command that can be useful for debugging
+    
     if($_GET['q'] == '!flush') {
         $m->flush();
         echo 'flushed cache';
         exit();
     }
+    
+    */
+    
 
     # define the cache key for this query
     $mc_key = 'udapi-' . strtolower($_GET['q']);
@@ -23,30 +30,38 @@ if(strlen($_GET['q'] <= 200)){
 
     # check cache for key
     $cache_hit = $m->get($mc_key);
+    
+    # if cache hit found
     if($m->getResultCode() == Memcached::RES_SUCCESS) {
+        
+        #respond with the cached result
         $output = $cache_hit;
+        
     } else {
+        
+        # if cache hit not found attempt to pull new definition directly. 
         $url = 'http://api.urbandictionary.com/v0/define?term=' . str_replace(' ', '%20', trim($_GET['q']));
         $json = file_get_contents($url);
         $data = json_decode($json);
+        
+        # check for valid definition
         if(isset($data->list[0]->definition) ){
 
-            # pull definition from object
+            # extra definition from object
             $definition = $data->list[0]->definition;
 
             # filter out line breaks
             $definition = str_replace("\r", " ", $definition);
             $definition = str_replace("\n", " ", $definition);
 
-            # store key
-
+            # store definition in key
             $m->set($mc_key, $definition);
 
             # set output
-
             $output = $definition;
         }
     }
 
+    # display our output
     echo substr($output, 0, 400);
 }
